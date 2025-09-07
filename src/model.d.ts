@@ -1,0 +1,32 @@
+
+type DeepPartial<T> = T extends object ? {
+    [P in keyof T]?: DeepPartial<T[P]>;
+} : T;
+
+type Require<T, K extends keyof T> = T & { [P in K]-?: T[P]; }
+
+// Types
+interface VersionSettings {
+  defaultPage: string;
+  encoding?: string;
+  language?: string;
+  urlRewrites: {
+    baseOrigin: string;
+    basePathname: string;
+    paths: Record<string, string>;
+  }
+}
+
+interface VersionEntry {
+  settings?: Partial<VersionSettings>;
+  paths: Record<string, string>;
+}
+
+interface ArchiveData {
+  title: string;
+  originalUrl: string;
+  indexStyle?: string;
+  settings: VersionSettings;
+  versions: Record<string, VersionEntry>;
+  fileRoot: string;
+}

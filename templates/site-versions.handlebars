@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{title}}</title>
+    {{#if style}}
+    <link rel="stylesheet" href="/static/styles/{{style}}">
+    {{/if}}
+</head>
+<body>
+    <h1>{{title}}</h1>
+    <p>The following versions of this site are available:</p>
+    <ul>
+        {{#each versions}}
+            <li><a href="/{{../site}}/{{this}}/">{{this}}</a></li>
+        {{/each}}
+    </ul>
+</body>
+</html>

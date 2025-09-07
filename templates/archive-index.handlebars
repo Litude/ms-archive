@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Archive Index</title>
+
+    <script>
+       document.addEventListener('DOMContentLoaded', function() {
+           document.getElementById("open-popup").addEventListener("click", function() {
+               window.open("/static/audio_popup.html", "Audio Popup", "width=600,height=400");
+           });
+       });
+    </script>
+</head>
+<body>
+    <h1>Archive Index</h1>
+    <p>For audio to work properly in archived sites, it must be played through a popup. Click the button below to open the popup.</p>
+    <button id="open-popup">Open Audio Popup</button>
+    <p>The following sites are available</p>
+    <ul>
+        {{#each sites}}
+            <li><a href="/{{this.path}}/">{{this.name}}</a></li>
+        {{/each}}
+    </ul>
+</body>
+</html>
