@@ -1,5 +1,6 @@
-import { rewriteElementAttribute } from "./html-element";
-import { applyRewriteRulesToString, rewriteUrls, urlRewriteTagAttributeTypes } from "./html-urls";
+import { VersionSettings } from "../model";
+import { rewriteElementAttribute } from "./html-old-element";
+import { urlRewriteTagAttributeTypes } from "./html-old-urls";
 
 function detectToolbarVersion(html: string): string | null {
   if (html.includes("<!-- Start: ToolBar V2.0-->") || html.includes("<!-- End: ToolBar V2.0-->")) {

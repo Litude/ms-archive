@@ -1,73 +1,110 @@
-import { rewriteElementAttribute } from "./html-element";
-export const urlRewriteTagAttributeTypes = [
-  {
-    tag: "img",
-    attribute: "src"
-  },
-  {
-    tag: "img",
-    attribute: "lowsrc"
-  },
-  {
-    tag: "body",
-    attribute: "background"
-  },
-  {
-    tag: "table",
-    attribute: "background"
-  },
-  {
-    tag: "td",
-    attribute: "background"
-  },
-  {
-    tag: "a",
-    attribute: "href"
-  },
-  {
-    tag: "area",
-    attribute: "href"
-  },
-  {
-    tag: "link",
-    attribute: "href"
-  },
-  {
-    tag: "iframe",
-    attribute: "src"
-  },
-  {
-    tag: "frame",
-    attribute: "src",
-  },
-  {
-    tag: "script",
-    attribute: "src"
-  },
-  {
-    tag: "bgsound",
-    attribute: "src"
-  },
-  {
-    tag: "option",
-    attribute: "value"
-  },
-  {
-    tag: "form",
-    attribute: "action"
-  },
-  {
-    tag: "input",
-    attribute: "src",
-    constraints: [
-      { attribute: "type", value: "image" }
-    ]
-  },
-  {
-    tag: "embed",
-    attribute: "src"
-  }
-];
+import { VersionSettings } from "../model";
+
+interface TagRewriteValue {
+  attribute: string;
+  outsideRewriteType: "local" | "external"
+  constraints?: { attribute: string; value: string }[]
+}
+
+export const urlRewriteTagAttributes: Record<string, TagRewriteValue[]> = {
+  "img": [
+    {
+      attribute: "src",
+      outsideRewriteType: "local"
+    },
+    {
+      attribute: "lowsrc",
+      outsideRewriteType: "local"
+    }
+  ],
+  "body": [
+    {
+      attribute: "background",
+      outsideRewriteType: "local"
+    }
+  ],
+  "table": [
+    {
+      attribute: "background",
+      outsideRewriteType: "local"
+    }
+  ],
+  "td": [
+    {
+      attribute: "background",
+      outsideRewriteType: "local"
+    }
+  ],
+  "a": [
+    {
+      attribute: "href",
+      outsideRewriteType: "external"
+    }
+  ],
+  "area": [
+    {
+      attribute: "href",
+      outsideRewriteType: "external"
+    }
+  ],
+  "link": [
+    {
+      attribute: "href",
+      outsideRewriteType: "local"
+    }
+  ],
+  "iframe": [
+    {
+      attribute: "src",
+      outsideRewriteType: "local"
+    }
+  ],
+  "frame": [
+    {
+      attribute: "src",
+      outsideRewriteType: "local"
+    }
+  ],
+  "script": [
+    {
+      attribute: "src",
+      outsideRewriteType: "local"
+    }
+  ],
+  "bgsound": [
+    {
+      attribute: "src",
+      outsideRewriteType: "local"
+    }
+  ],
+  "option": [
+    {
+      attribute: "value",
+      outsideRewriteType: "external"
+    }
+  ],
+  "form": [
+    {
+      attribute: "action",
+      outsideRewriteType: "external"
+    }
+  ],
+  "input": [
+    {
+      attribute: "src",
+      outsideRewriteType: "local",
+      constraints: [
+        { attribute: "type", value: "image" }
+      ]
+    }
+  ],
+  "embed": [
+    {
+      attribute: "src",
+      outsideRewriteType: "local"
+    }
+  ]
+}
 
 function getUrlUpperDirectoryCount(url: string): number {
   let count = 0;
@@ -80,14 +117,13 @@ function getUrlUpperDirectoryCount(url: string): number {
   return count;
 }
 
-export function applyRewriteRulesToString(url: string, requestedPath: string, settings: VersionSettings, rootPath: string, rewriteType: "relative" | "absolute") {
+export function applyRewriteRulesToString(url: string, requestedPath: string, settings: VersionSettings, rootPath: string, rewriteType: "relative" | "absolute", outsideRewriteType: "local" | "external"): string {
   // First we make all URLs that are inside the site relative to the site root (starting with /)
   // Then we apply all mapping rules to all URLs
   // Finally depending on rewriteType the URLs that are site relative are either made archive absolute or path relative
   // If a rewrite rule startsWith / it is relative to basePathname, else it is relative to the site root
 
   const rewriteSettings = settings.urlRewrites;
-  // Absolute URL that is outside the site, no need to rewrite
 
   // Remove base origin http://<baseOrigin> from all urls
   if (url.startsWith(rewriteSettings.baseOrigin)) {
@@ -143,13 +179,21 @@ export function applyRewriteRulesToString(url: string, requestedPath: string, se
     return url;
   }
 
-  if (url.startsWith("/")) {
+  // Any url at this point that is starting with / is considered outside the site
+  if (url.startsWith("/") && outsideRewriteType === "external") {
     // Rootpath check is a bug workaround, some urls inside javascript are processed multiple times...
     if (!url.startsWith(rootPath)) {
       url = (rewriteSettings.baseOrigin || "") + url;
     }
   }
   else {
+    if (url.startsWith("/")) {
+        let rewriteDomainFakeUrl = rewriteSettings.baseOrigin.startsWith('http://') ? rewriteSettings.baseOrigin.slice(7) : rewriteSettings.baseOrigin;
+        rewriteDomainFakeUrl = rewriteDomainFakeUrl.startsWith('https://') ? rewriteDomainFakeUrl.slice(8) : rewriteDomainFakeUrl;
+        rewriteDomainFakeUrl = rewriteDomainFakeUrl.startsWith('www.') ? rewriteDomainFakeUrl.slice(4) : rewriteDomainFakeUrl;
+        url = `_${rewriteDomainFakeUrl}${url}`;
+    }
+
     if (rewriteType === "absolute") {
       url = `${rootPath}${url}`
     }
@@ -177,38 +221,4 @@ export function applyRewriteRulesToString(url: string, requestedPath: string, se
     }
   }
   return url;
-}
-
-function rewriteRefreshTags(html: string, requestedPath: string, settings: VersionSettings, rootPath: string, rewriteType: "relative" | "absolute"): string {
-  return rewriteElementAttribute(html, "meta", "content", (value) => {
-    const match = value.match(/^\s*(\d+)\s*;\s*url\s*=\s*(.+)\s*$/i);
-    if (match) {
-      let url = match[2];
-      url = applyRewriteRulesToString(url, requestedPath, settings, rootPath, rewriteType);
-      return `${match[1]}; url=${url}`;
-    }
-    return value;
-  }, [{ attribute: "http-equiv", value: "refresh" }]);
-}
-
-function rewriteFormRedirects(html: string): string {
-  const patched = html.replace(
-    /<(form)([^>]*\saction=["']?\/isapi\/redir\.dll["'][^>]*)>/i,
-    (m, key, attrs) => `<${key} onsubmit="location=this.Target.value;return false;">`
-  );
-  return patched
-}
-
-export function rewriteUrls(html: string, requestedPath: string, settings: VersionSettings, rootPath: string, rewriteType: "relative" | "absolute"): string {
-  const pathSegments = requestedPath.split('/').filter(Boolean);
-  const depth = pathSegments.length > 1 ? pathSegments.length - 1 : 0;
-  let updatedHtml = rewriteFormRedirects(html);
-  updatedHtml = urlRewriteTagAttributeTypes.reduce((currentHtml, { tag, attribute, constraints }) => {
-    return rewriteElementAttribute(currentHtml, tag, attribute, (value) => {
-      value = applyRewriteRulesToString(value, requestedPath, settings, rootPath, rewriteType);
-      return value;
-    }, constraints)
-  }, updatedHtml);
-  updatedHtml = rewriteRefreshTags(updatedHtml, requestedPath, settings, rootPath, rewriteType);
-  return updatedHtml;
 }

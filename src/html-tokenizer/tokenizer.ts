@@ -1,9 +1,9 @@
 // src/tokenizer.ts
-import { Token, TagOpenToken } from "./types";
+import { HtmlToken, TagOpenToken } from "./types";
 import { parseAttributes } from "./attributes";
 
-export function tokenize(html: string): Token[] {
-  const tokens: Token[] = [];
+export function tokenize(html: string): HtmlToken[] {
+  const tokens: HtmlToken[] = [];
   let pos = 0;
 
   while (pos < html.length) {
@@ -34,7 +34,7 @@ export function tokenize(html: string): Token[] {
         if (end === -1) end = html.length;
         const raw = html.slice(pos, end + 1);
         const name = raw.replace(/^<\/\s*|>$/g, "").trim().split(/\s+/)[0];
-        tokens.push({ type: "tag-close", raw, tag: name.toLowerCase(), name });
+        tokens.push({ type: "tag-close", raw, name: name.toLowerCase(), rawName: name });
         pos = end + 1;
         continue;
       }
@@ -46,19 +46,73 @@ export function tokenize(html: string): Token[] {
       const inner = raw.replace(/^<\s*|\/?>$/g, "").trim();
       const name = inner.split(/\s+/)[0] || "";
       const parsed = parseAttributes(raw);
-      const token: TagOpenToken = {
-        type: "tag-open",
-        raw,
-        tag: name.toLowerCase(),
-        name,
-        attrs: parsed.attrs,
-        prefix: parsed.prefix,
-        suffix: parsed.suffix,
-        selfClosing: parsed.selfClosing,
-      };
-      tokens.push(token);
-      pos = end + 1;
-      continue;
+
+      const nameLower = name.toLowerCase();
+
+      if (nameLower === "script" || nameLower === "style") {
+        const closeTagRe = new RegExp(
+          `<\\/\\s*${nameLower}\\s*>`,
+          "i"
+        );
+        const match = closeTagRe.exec(html.slice(end + 1));
+        let closePos: number;
+        let tagLength = 0;
+        if (match) {
+          closePos = end + 1 + match.index;
+          tagLength = match[0].length;
+        } else {
+          closePos = html.length;
+        }
+
+        const rawOpen = raw;
+        const rawContent = html.slice(end + 1, closePos);
+        const rawClose = html.slice(closePos, closePos + tagLength);
+
+        if (nameLower === "script") {
+          tokens.push({
+            type: "script",
+            raw: rawOpen + rawContent + rawClose,
+            name: name.toLowerCase(),
+            rawName: name,
+            rawOpen,
+            rawContent,
+            rawClose,
+            attrs: parsed.attrs,
+            prefix: parsed.prefix,
+            suffix: parsed.suffix,
+          });
+        } else {
+          tokens.push({
+            type: "style",
+            raw: rawOpen + rawContent + rawClose,
+            name: name.toLowerCase(),
+            rawName: name,
+            rawOpen,
+            rawContent,
+            rawClose,
+            attrs: parsed.attrs,
+            prefix: parsed.prefix,
+            suffix: parsed.suffix,
+          });
+        }
+        pos = closePos + tagLength;
+        continue;
+      }
+      else {
+        const token: TagOpenToken = {
+          type: "tag-open",
+          raw,
+          name: name.toLowerCase(),
+          rawName: name,
+          attrs: parsed.attrs,
+          prefix: parsed.prefix,
+          suffix: parsed.suffix,
+          selfClosing: parsed.selfClosing,
+        };
+        tokens.push(token);
+        pos = end + 1;
+        continue;
+      }
     }
 
     // text

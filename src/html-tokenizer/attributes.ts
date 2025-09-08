@@ -1,5 +1,5 @@
 // src/attributes.ts
-import { Attr } from "./types";
+import { Attr, HtmlToken, TagOpenToken } from "./types";
 
 /**
  * Parse attributes from a tag raw string (e.g. `<div id="x"class='y'>`).
@@ -109,7 +109,8 @@ export function parseAttributes(tagRaw: string): {
 
     attrs.push({
       raw,
-      name,
+      name: name.toLowerCase(),
+      rawName: name,
       value,
       quote,
       start: globalStart,
@@ -143,14 +144,14 @@ export function parseAttributes(tagRaw: string): {
  * - If unquoted, replace the bare value (preserving spaces around '=').
  * - If boolean (no value), convert to quoted `name="newValue"` preserving leading whitespace.
  */
-export function setAttrValue(attr: Attr, newValue: string): void {
+export function setAttributeValue(attr: Attr, newValue: string): void {
   if (attr.value === null) {
     // boolean -> create an "=" + quoted value preserving leading whitespace
-    const nameIdx = attr.raw.indexOf(attr.name);
+    const nameIdx = attr.raw.indexOf(attr.rawName);
     const leading = nameIdx >= 0 ? attr.raw.slice(0, nameIdx) : "";
     attr.quote = '"';
     attr.value = newValue;
-    attr.raw = `${leading}${attr.name}=${attr.quote}${newValue}${attr.quote}`;
+    attr.raw = `${leading}${attr.rawName}=${attr.quote}${newValue}${attr.quote}`;
     return;
   }
 
@@ -166,8 +167,8 @@ export function setAttrValue(attr: Attr, newValue: string): void {
   }
 
   // unquoted or malformed -> replace the unquoted token after '='
-  const nameIdx = attr.raw.indexOf(attr.name);
-  const eqIdx = nameIdx >= 0 ? attr.raw.indexOf("=", nameIdx + attr.name.length) : -1;
+  const nameIdx = attr.raw.indexOf(attr.rawName);
+  const eqIdx = nameIdx >= 0 ? attr.raw.indexOf("=", nameIdx + attr.rawName.length) : -1;
   if (eqIdx >= 0) {
     let vStart = eqIdx + 1;
     // keep whitespace between '=' and value
@@ -183,5 +184,37 @@ export function setAttrValue(attr: Attr, newValue: string): void {
   const leading = nameIdx >= 0 ? attr.raw.slice(0, nameIdx) : "";
   attr.quote = '"';
   attr.value = newValue;
-  attr.raw = `${leading}${attr.name}=${attr.quote}${newValue}${attr.quote}`;
+  attr.raw = `${leading}${attr.rawName}=${attr.quote}${newValue}${attr.quote}`;
+}
+
+export function getAttributeValue(token: TagOpenToken, attr: string): string | null {
+  const attribute = token.attrs.find(a => a.name === attr);
+  return attribute ? attribute.value : null;
+}
+
+export function getAttribute(token: TagOpenToken, attr: string): Attr | null {
+  const attribute = token.attrs.find(a => a.name === attr);
+  return attribute || null;
+}
+
+export function createAttribute(name: string, value: string | null, leadingWhitespace = " "): Attr {
+  let raw: string;
+  let quote: '"' | "'" | null = null;
+  if (value === null) {
+    // boolean attribute
+    raw = `${leadingWhitespace}${name}`;
+  } else {
+    // quoted value by default
+    quote = '"';
+    raw = `${leadingWhitespace}${name}=${quote}${value}${quote}`;
+  }
+  return {
+    raw,
+    name: name.toLowerCase(),
+    rawName: name,
+    value,
+    quote,
+    start: -1,
+    end: -1,
+  };
 }

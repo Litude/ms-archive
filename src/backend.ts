@@ -2,14 +2,15 @@ import express from "express";
 import fs, { promises } from "fs";
 import path from "path";
 import { TextDecoder } from "util";
-import { decodeHtml, processHtml } from "./html-process/html-process.js";
+import { processHtml } from "./old-parser/html-old-process.js";
 import { getSiteArchiveData, initializeArchive } from "./archive.js";
 import { getSiteMainIndex, getSiteVersionIndex } from "./templates.js";
 import { fileExistsCaseSensitive } from "./file-utils.js";
-import { rewriteJavascriptBlockUrl } from "./html-process/html-javascript.js";
+import { rewriteJavascriptBlockUrl } from "./old-parser/html-old-javascript.js";
 import { tokenize } from "./html-tokenizer/tokenizer.js";
 import { serialize } from "./html-tokenizer/serializer.js";
 import { ArchiveVersion, DeepPartial, VersionEntry, VersionSettings } from "./model.js";
+import { decodeHtml, processHtmlTokenized } from "./html-process/html-process.js";
 
 const app = express();
 const PORT = 3000;
@@ -89,7 +90,8 @@ app.get("/:site/:version/{*pathRaw}", async (req, res) => {
   const archiveFlagsRaw = req.query.archiveFlags as string | undefined;
   const archiveFlags = (archiveFlagsRaw ?? "").split(',');
   const rawResponse = archiveFlags.includes("raw");
-  const tokenizedResponse = archiveFlags.includes("tokenize");
+  const regexParser = archiveFlags.includes("regexParser");
+  const tokenizedRawResponse = archiveFlags.includes("tokenizeRaw");
 
   const archiveData = getSiteArchiveData(site);
   if (!archiveData) {
@@ -135,18 +137,6 @@ app.get("/:site/:version/{*pathRaw}", async (req, res) => {
     }
     return res.send(buffer);
   }
-  else if (tokenizedResponse) {
-    const buffer = await promises.readFile(filePath);
-    const html = decodeHtml(buffer, currentVersionData.settings);
-    const htmlTokens = tokenize(html);
-    for (const token of htmlTokens) {
-      console.log(JSON.stringify(token))
-    }
-    const reserialized = serialize(htmlTokens);
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    return res.send(reserialized);
-  }
-
   if ([".html", ".htm", ".asp", ".aspx", ".idc"].includes(ext)) {
     const buffer = await promises.readFile(filePath);
     // ASP and ASPX are by default HTML, but in rare cases they might actually be e.g. images
@@ -165,9 +155,29 @@ app.get("/:site/:version/{*pathRaw}", async (req, res) => {
         return;
       }
     }
-    const html = processHtml({ buffer, url: `/${site}/${version}/${requestedPath}`, requestedPath, settings: currentVersionData.settings, site, version });
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(html);
+
+    if (regexParser) {
+      const html = processHtml({ buffer, url: `/${site}/${version}/${requestedPath}`, requestedPath, settings: currentVersionData.settings, site, version });
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(html);
+    }
+    else {
+      if (tokenizedRawResponse) {
+        const html = decodeHtml(buffer, currentVersionData.settings);
+        const htmlTokens = tokenize(html);
+        for (const token of htmlTokens) {
+          console.log(JSON.stringify(token))
+        }
+        const reserialized = serialize(htmlTokens);
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        return res.send(reserialized);
+      }
+      else {
+        const reserialized = processHtmlTokenized({ buffer, url: `/${site}/${version}/${requestedPath}`, requestedPath, settings: currentVersionData.settings, site, version });
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        return res.send(reserialized);
+      }
+    }
   } else if (ext === ".txt" && currentVersionData.settings.encoding) {
     const buffer = await promises.readFile(filePath);
     const text = new TextDecoder(currentVersionData.settings.encoding).decode(buffer);

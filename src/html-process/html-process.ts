@@ -1,12 +1,14 @@
-import { rewriteAudioTags } from "./html-audio";
-import { rewriteHtmlJavascriptUrls } from "./html-javascript";
+import { HtmlToken } from "../html-tokenizer/types";
+import { VersionSettings } from "../model";
+import { applyRewriteRulesToString, urlRewriteTagAttributes } from "./html-urls";
+import * as HtmlAttributes from "../html-tokenizer/attributes";
+import * as HtmlSerializer from "../html-tokenizer/serializer";
+import * as HtmlTokenizer from "../html-tokenizer/tokenizer";
 import { rewriteCharsetAndLanguage } from "./html-locale";
-import { rewriteToolbar } from "./html-toolbar";
-import { rewriteUrls } from "./html-urls";
 
 export function decodeHtml(buffer: Buffer, settings: VersionSettings): string {
   let encoding = settings.encoding || "utf-8";
-  const preview = new TextDecoder("windows-1252").decode(buffer.slice(0, 1024));
+  const preview = new TextDecoder("windows-1252").decode(buffer.subarray(0, 1024));
 
   const match = preview.match(/<meta\s+charset=["']?([^"'>\s]+)/i)
              || preview.match(/<meta\s+http-equiv=["']?Content-Type["']?\s+content=["'][^"']*charset=([^"'>\s]+)/i)
@@ -18,7 +20,7 @@ export function decodeHtml(buffer: Buffer, settings: VersionSettings): string {
   return new TextDecoder(encoding).decode(buffer);
 }
 
-export function processHtml({ buffer, url, requestedPath, settings, site, version }: {
+export function processHtmlTokenized({ buffer, url, requestedPath, settings, site, version }: {
   buffer: Buffer,
   url: string,
   requestedPath: string,
@@ -26,11 +28,19 @@ export function processHtml({ buffer, url, requestedPath, settings, site, versio
   site: string,
   version: string
 }): string {
-  let html = decodeHtml(buffer, settings);
-  html = rewriteCharsetAndLanguage(html, settings);
-  html = rewriteToolbar(html, requestedPath,settings, site, version);
-  html = rewriteUrls(html, requestedPath, settings, `/${site}/${version}/`, "relative");
-  html = rewriteHtmlJavascriptUrls(html, requestedPath, settings, `/${site}/${version}/`, "relative");
-  //html = rewriteAudioTags(html, url, settings, "popup");
-  return html;
+  const html = decodeHtml(buffer, settings);
+  let tokenDocument = HtmlTokenizer.tokenize(html);
+  tokenDocument = rewriteCharsetAndLanguage(tokenDocument, settings);
+  for (const token of tokenDocument) {
+    if (token.type === "tag-open") {
+      const attributes = urlRewriteTagAttributes[token.name] || [];
+      for (const attr of attributes) {
+        const currentAttr = HtmlAttributes.getAttribute(token, attr.attribute);
+        if (currentAttr && currentAttr.value) {
+          HtmlAttributes.setAttributeValue(currentAttr, applyRewriteRulesToString(currentAttr.value, requestedPath, settings, `/${site}/${version}/`, "absolute", attr.outsideRewriteType));
+        }
+      }
+    }
+  }
+  return HtmlSerializer.serialize(tokenDocument);
 }

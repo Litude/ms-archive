@@ -4,7 +4,9 @@ const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
 
 import * as acorn from "acorn";
 import recast, { parse, print, visit } from "recast";
-import { applyRewriteRulesToString, rewriteUrls, urlRewriteTagAttributeTypes } from "./html-urls";
+import { rewriteUrls } from "./html-old-urls";
+import { VersionSettings } from "../model";
+import { applyRewriteRulesToString } from "../html-process/html-urls";
 
 export function rewriteHtmlJavascriptUrls(html: string, requestedPath: string, settings: VersionSettings, rootPath: string, rewriteType: "relative" | "absolute") {
   return html.replace(scriptRegex, (match, scriptBody) => {
@@ -104,7 +106,7 @@ export function rewriteJavascriptBlockUrl(jsCode: string, requestedPath: string,
       if (typeof path.value.value === "string") {
         let url = path.value.value;
         if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) {
-          url = applyRewriteRulesToString(url, requestedPath, settings, rootPath, rewriteType);
+          url = applyRewriteRulesToString(url, requestedPath, settings, rootPath, rewriteType, "local");
           if (url !== path.value.value) {
             scriptChanged = true;
             path.value.value = url;
