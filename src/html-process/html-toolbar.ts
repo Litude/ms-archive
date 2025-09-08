@@ -11,22 +11,22 @@ function detectToolbarVersion(html: string): string | null {
 }
 
 function rewriteToolbarV1(html: string, requestedPath: string, settings: VersionSettings, site: string, version: string): string {
-    html = html.replace(/<!--TOOLBAR_START-->(.*?)<!--TOOLBAR_END-->/s, (match, content) => {
-      return '<!--TOOLBAR_START-->' + content.replace(/(<img[^>]*\s+src=["'])([^"']+)(["'][^>]*>)/gi, (match, prefix, src, suffix) => {
-        const filename = src.split('/').pop();
-        const rewritten = `${prefix}${settings.urlRewrites.basePathname}toolbar/1.0/images/${filename}${suffix}`;
-        return rewritten;
-      }) + '<!--TOOLBAR_END-->';
-    });
+    // html = html.replace(/<!--TOOLBAR_START-->(.*?)<!--TOOLBAR_END-->/s, (match, content) => {
+    //   return '<!--TOOLBAR_START-->' + content.replace(/(<img[^>]*\s+src=["'])([^"']+)(["'][^>]*>)/gi, (match, prefix, src, suffix) => {
+    //     const filename = src.split('/').pop();
+    //     const rewritten = `${prefix}${settings.urlRewrites.basePathname}toolbar/1.0/images/${filename}${suffix}`;
+    //     return rewritten;
+    //   }) + '<!--TOOLBAR_END-->';
+    // });
 
-    if (html.includes("<!-- games TOOLBAR-->")) {
-      html = html.replace(/<!-- games TOOLBAR-->(.*?)<!-- end of games TOOLBAR-->/s, (match, content) => {
-        return '<!-- games TOOLBAR-->' + content.replace(/(<img[^>]*\s+src=["'])([^"']+)(["'][^>]*>)/gi, (match, prefix, src, suffix) => {
-          const filename = src.split('/').pop();
-          return `${prefix}${settings.urlRewrites.basePathname}toolbar/1.0/images/${filename}${suffix}`;
-        }) + '<!-- games TOOLBAR_END-->';
-      });
-    }
+    // if (html.includes("<!-- games TOOLBAR-->")) {
+    //   html = html.replace(/<!-- games TOOLBAR-->(.*?)<!-- end of games TOOLBAR-->/s, (match, content) => {
+    //     return '<!-- games TOOLBAR-->' + content.replace(/(<img[^>]*\s+src=["'])([^"']+)(["'][^>]*>)/gi, (match, prefix, src, suffix) => {
+    //       const filename = src.split('/').pop();
+    //       return `${prefix}${settings.urlRewrites.basePathname}toolbar/1.0/images/${filename}${suffix}`;
+    //     }) + '<!-- games TOOLBAR_END-->';
+    //   });
+    // }
     return html;
 }
 

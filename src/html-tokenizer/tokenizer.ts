@@ -5,7 +5,6 @@ import { parseAttributes } from "./attributes";
 export function tokenize(html: string): Token[] {
   const tokens: Token[] = [];
   let pos = 0;
-  let idx = 0;
 
   while (pos < html.length) {
     if (html[pos] === "<") {
@@ -14,7 +13,7 @@ export function tokenize(html: string): Token[] {
         let end = html.indexOf("-->", pos);
         if (end === -1) end = html.length;
         const raw = html.slice(pos, end + 3);
-        tokens.push({ type: "comment", raw, index: idx++ });
+        tokens.push({ type: "comment", raw });
         pos = end + 3;
         continue;
       }
@@ -24,7 +23,7 @@ export function tokenize(html: string): Token[] {
         let end = html.indexOf(">", pos);
         if (end === -1) end = html.length;
         const raw = html.slice(pos, end + 1);
-        tokens.push({ type: "doctype", raw, index: idx++ });
+        tokens.push({ type: "doctype", raw });
         pos = end + 1;
         continue;
       }
@@ -35,7 +34,7 @@ export function tokenize(html: string): Token[] {
         if (end === -1) end = html.length;
         const raw = html.slice(pos, end + 1);
         const name = raw.replace(/^<\/\s*|>$/g, "").trim().split(/\s+/)[0];
-        tokens.push({ type: "tag-close", raw, name, index: idx++ });
+        tokens.push({ type: "tag-close", raw, tag: name.toLowerCase(), name });
         pos = end + 1;
         continue;
       }
@@ -50,12 +49,12 @@ export function tokenize(html: string): Token[] {
       const token: TagOpenToken = {
         type: "tag-open",
         raw,
+        tag: name.toLowerCase(),
         name,
         attrs: parsed.attrs,
         prefix: parsed.prefix,
         suffix: parsed.suffix,
         selfClosing: parsed.selfClosing,
-        index: idx++,
       };
       tokens.push(token);
       pos = end + 1;
@@ -65,7 +64,7 @@ export function tokenize(html: string): Token[] {
     // text
     let start = pos;
     while (pos < html.length && html[pos] !== "<") pos++;
-    tokens.push({ type: "text", raw: html.slice(start, pos), index: idx++ });
+    tokens.push({ type: "text", raw: html.slice(start, pos) });
   }
 
   return tokens;

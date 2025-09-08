@@ -9,7 +9,6 @@ export type Token =
 export interface BaseToken {
   type: string;
   raw: string;     // exact source text for lossless roundtrip
-  index: number;   // position in stream
 }
 
 export interface TextToken extends BaseToken {
@@ -18,6 +17,7 @@ export interface TextToken extends BaseToken {
 
 export interface TagOpenToken extends BaseToken {
   type: "tag-open";
+  tag: string;     // lowercased tag name for easier comparisons
   name: string;
   attrs: Attr[];
   prefix: string;   // substring from '<' up to the first attribute raw (includes '<' and tag name)
@@ -27,6 +27,7 @@ export interface TagOpenToken extends BaseToken {
 
 export interface TagCloseToken extends BaseToken {
   type: "tag-close";
+  tag: string;   // lowercased tag name for easier comparisons
   name: string;
 }
 

@@ -17,16 +17,25 @@ interface VersionSettings {
   }
 }
 
-interface VersionEntry {
+export interface VersionEntry {
   settings?: Partial<VersionSettings>;
   paths: Record<string, string>;
 }
 
-interface ArchiveData {
+export interface ArchiveVersion {
+  path: string,
+  date: Date,
+  tag?: string,
+  ext: string,
+  originalName: string
+}
+
+export interface ArchiveData {
   title: string;
   originalUrl: string;
   indexStyle?: string;
   settings: VersionSettings;
   versions: Record<string, VersionEntry>;
+  archiveMap: Record<string, ArchiveVersion[]>;
   fileRoot: string;
 }

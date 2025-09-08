@@ -9,6 +9,7 @@ import { fileExistsCaseSensitive } from "./file-utils.js";
 import { rewriteJavascriptBlockUrl } from "./html-process/html-javascript.js";
 import { tokenize } from "./html-tokenizer/tokenizer.js";
 import { serialize } from "./html-tokenizer/serializer.js";
+import { ArchiveVersion, DeepPartial, VersionEntry, VersionSettings } from "./model.js";
 
 const app = express();
 const PORT = 3000;
@@ -58,6 +59,17 @@ app.get("/:site/", (req, res) => {
   res.send(siteHtml);
 });
 
+function getFileVersion(requestedPath: string, requestedVersion: Date, archiveData: Record<string, ArchiveVersion[]>): string | null {
+  if (!(requestedPath in archiveData)) {
+    return null;
+  }
+  const candidates = archiveData[requestedPath].filter(v => v.date <= requestedVersion);
+  if (candidates.length === 0) {
+    return null;
+  }
+  return candidates[0].path;
+}
+
 function getFilenamePath(currentVersionData: { settings: VersionSettings, paths: Record<string, string> }, requestedPath: string) {
   if (requestedPath in currentVersionData.paths) {
     const filename = currentVersionData.paths[requestedPath].split('/').pop();
@@ -101,10 +113,16 @@ app.get("/:site/:version/{*pathRaw}", async (req, res) => {
   }
   const requestedPath = pathRaw ? pathRaw.join('/') : currentVersionData.settings.defaultPage;
 
-  const filename = getFilenamePath(currentVersionData, requestedPath);
-  if (!await fileExistsCaseSensitive(archiveData.fileRoot, filename)) {
+
+  const filename = getFileVersion(requestedPath, new Date(`${version}T23:59:59Z`), archiveData.archiveMap);
+  if (!filename) {
     return res.status(404).send("Not found");
   }
+
+  // const filename = getFilenamePath(currentVersionData, requestedPath);
+  // if (!await fileExistsCaseSensitive(archiveData.fileRoot, filename)) {
+  //   return res.status(404).send("Not found");
+  // }
   const filePath = path.join(archiveData.fileRoot, filename);
 
   const ext = path.extname(filePath).toLowerCase();
