@@ -1,6 +1,6 @@
 // src/tokenizer.ts
 import { HtmlToken, TagOpenToken } from "./types";
-import { parseAttributes } from "./attributes";
+import { getAttribute, parseAttributes } from "./attributes";
 
 export function tokenize(html: string): HtmlToken[] {
   const tokens: HtmlToken[] = [];
@@ -69,18 +69,37 @@ export function tokenize(html: string): HtmlToken[] {
         const rawClose = html.slice(closePos, closePos + tagLength);
 
         if (nameLower === "script") {
-          tokens.push({
-            type: "script",
-            raw: rawOpen + rawContent + rawClose,
-            name: name.toLowerCase(),
-            rawName: name,
-            rawOpen,
-            rawContent,
-            rawClose,
-            attrs: parsed.attrs,
-            prefix: parsed.prefix,
-            suffix: parsed.suffix,
-          });
+          // If there is a SRC tag, this means the script is not inline (or if there is some text, it does not need to be handled) and we should treat this as a regular tag
+          const isRegularTag = parsed.attrs.some(a => a.name === "src");
+          if (isRegularTag) {
+            const token: TagOpenToken = {
+              type: "tag-open",
+              raw,
+              name: name.toLowerCase(),
+              rawName: name,
+              attrs: parsed.attrs,
+              prefix: parsed.prefix,
+              suffix: parsed.suffix,
+              selfClosing: parsed.selfClosing,
+            };
+            tokens.push(token);
+            pos = end + 1;
+            continue;
+          }
+          else {
+            tokens.push({
+              type: "script",
+              raw: rawOpen + rawContent + rawClose,
+              name: name.toLowerCase(),
+              rawName: name,
+              rawOpen,
+              rawContent,
+              rawClose,
+              attrs: parsed.attrs,
+              prefix: parsed.prefix,
+              suffix: parsed.suffix,
+            });
+          }
         } else {
           tokens.push({
             type: "style",

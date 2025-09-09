@@ -1,4 +1,7 @@
+import { HtmlToken } from "../html-tokenizer/types";
 import { VersionSettings } from "../model";
+import * as HtmlAttributes from "../html-tokenizer/attributes";
+import { rewriteJavascriptBlockUrl } from "./html-javascript";
 
 interface TagRewriteValue {
   attribute: string;
@@ -191,7 +194,7 @@ export function applyRewriteRulesToString(url: string, requestedPath: string, se
         let rewriteDomainFakeUrl = rewriteSettings.baseOrigin.startsWith('http://') ? rewriteSettings.baseOrigin.slice(7) : rewriteSettings.baseOrigin;
         rewriteDomainFakeUrl = rewriteDomainFakeUrl.startsWith('https://') ? rewriteDomainFakeUrl.slice(8) : rewriteDomainFakeUrl;
         rewriteDomainFakeUrl = rewriteDomainFakeUrl.startsWith('www.') ? rewriteDomainFakeUrl.slice(4) : rewriteDomainFakeUrl;
-        url = `_${rewriteDomainFakeUrl}${url}`;
+        url = `www.${rewriteDomainFakeUrl}${url}`;
     }
 
     if (rewriteType === "absolute") {
@@ -221,4 +224,26 @@ export function applyRewriteRulesToString(url: string, requestedPath: string, se
     }
   }
   return url;
+}
+
+
+export function rewriteTokenizedHtmlUrls(tokenDocument: HtmlToken[], requestedPath: string, settings: VersionSettings, rootPath: string, rewriteType: "relative" | "absolute"): HtmlToken[] {
+    for (const token of tokenDocument) {
+      if (token.type === "tag-open") {
+        const attributes = urlRewriteTagAttributes[token.name] || [];
+        for (const attr of attributes) {
+          const currentAttr = HtmlAttributes.getAttribute(token, attr.attribute);
+          if (currentAttr && currentAttr.value) {
+            HtmlAttributes.setAttributeValue(currentAttr, applyRewriteRulesToString(currentAttr.value, requestedPath, settings, rootPath, rewriteType, attr.outsideRewriteType));
+          }
+        }
+      }
+      else if (token.type === "script") {
+        const rewritten = rewriteJavascriptBlockUrl(token.rawContent, requestedPath, settings, rootPath, "relative");
+        if (rewritten !== token.rawContent) {
+          token.rawContent = rewritten;
+        }
+      }
+    }
+    return tokenDocument;
 }

@@ -1,3 +1,5 @@
+import { VersionSettings } from "../model";
+
 interface AudioRewriteState {
     encounteredAudio: boolean;
     encounteredFilenames: string[];

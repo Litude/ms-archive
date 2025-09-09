@@ -1,10 +1,10 @@
-import { HtmlToken } from "../html-tokenizer/types";
 import { VersionSettings } from "../model";
-import { applyRewriteRulesToString, urlRewriteTagAttributes } from "./html-urls";
+import { applyRewriteRulesToString, rewriteTokenizedHtmlUrls, urlRewriteTagAttributes } from "./html-urls";
 import * as HtmlAttributes from "../html-tokenizer/attributes";
 import * as HtmlSerializer from "../html-tokenizer/serializer";
 import * as HtmlTokenizer from "../html-tokenizer/tokenizer";
 import { rewriteCharsetAndLanguage } from "./html-locale";
+import { rewriteJavascriptBlockUrl } from "./html-javascript";
 
 export function decodeHtml(buffer: Buffer, settings: VersionSettings): string {
   let encoding = settings.encoding || "utf-8";
@@ -31,16 +31,6 @@ export function processHtmlTokenized({ buffer, url, requestedPath, settings, sit
   const html = decodeHtml(buffer, settings);
   let tokenDocument = HtmlTokenizer.tokenize(html);
   tokenDocument = rewriteCharsetAndLanguage(tokenDocument, settings);
-  for (const token of tokenDocument) {
-    if (token.type === "tag-open") {
-      const attributes = urlRewriteTagAttributes[token.name] || [];
-      for (const attr of attributes) {
-        const currentAttr = HtmlAttributes.getAttribute(token, attr.attribute);
-        if (currentAttr && currentAttr.value) {
-          HtmlAttributes.setAttributeValue(currentAttr, applyRewriteRulesToString(currentAttr.value, requestedPath, settings, `/${site}/${version}/`, "absolute", attr.outsideRewriteType));
-        }
-      }
-    }
-  }
+  tokenDocument = rewriteTokenizedHtmlUrls(tokenDocument, requestedPath, settings, `/${site}/${version}/`, "relative");
   return HtmlSerializer.serialize(tokenDocument);
 }

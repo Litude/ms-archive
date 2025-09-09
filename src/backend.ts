@@ -6,11 +6,11 @@ import { processHtml } from "./old-parser/html-old-process.js";
 import { getSiteArchiveData, initializeArchive } from "./archive.js";
 import { getSiteMainIndex, getSiteVersionIndex } from "./templates.js";
 import { fileExistsCaseSensitive } from "./file-utils.js";
-import { rewriteJavascriptBlockUrl } from "./old-parser/html-old-javascript.js";
 import { tokenize } from "./html-tokenizer/tokenizer.js";
 import { serialize } from "./html-tokenizer/serializer.js";
 import { ArchiveVersion, DeepPartial, VersionEntry, VersionSettings } from "./model.js";
 import { decodeHtml, processHtmlTokenized } from "./html-process/html-process.js";
+import { rewriteJavascriptBlockUrl } from "./html-process/html-javascript.js";
 
 const app = express();
 const PORT = 3000;
