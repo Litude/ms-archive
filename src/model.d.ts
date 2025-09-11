@@ -23,7 +23,7 @@ export interface VersionEntry {
 }
 
 export interface ArchiveVersion {
-  path: string,
+  path: string | null,
   date: Date,
   tag?: string,
   ext: string,

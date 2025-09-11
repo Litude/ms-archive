@@ -26,10 +26,25 @@ function initializeSiteArchive(sitePath: string) {
         return;
     }
 
-    // Helper to parse archive filenames
-    function parseArchiveFilename(filename: string): { originalName: string, date: Date, tag?: string, ext: string } | null {
-        // Match: basename(.YYYYMMDD(-HHMMSS)?(.tag)?)?.ext
-        // All date/tag parts optional
+    // Helper to parse archive filenames and .meta files
+    function parseArchiveFilename(filename: string): { originalName: string, date: Date, tag?: string, ext: string, isMeta?: boolean, metaEvent?: string, metaExt?: string } | null {
+        // .meta file: basename.YYYYMMDD(.tag)?.ext.meta
+        const metaMatch = filename.match(/^(.+?)\.(\d{8})(?:-(\d{6}))?(?:\.([^.]+))?\.([^.]+)\.meta$/);
+        if (metaMatch) {
+            const [, base, ymd, hms, tag, ext] = metaMatch;
+            const date = hms
+                ? new Date(`${ymd.slice(0,4)}-${ymd.slice(4,6)}-${ymd.slice(6,8)}T${hms.slice(0,2)}:${hms.slice(2,4)}:${hms.slice(4,6)}Z`)
+                : new Date(`${ymd.slice(0,4)}-${ymd.slice(4,6)}-${ymd.slice(6,8)}T00:00:00Z`);
+            // The tag for meta is the event (e.g. 'removed')
+            return {
+                originalName: base,
+                date,
+                tag,
+                ext,
+                isMeta: true,
+            };
+        }
+        // Normal archive file
         const match = filename.match(/^(.+?)(?:\.(\d{8})(?:-(\d{6}))?)?(?:\.([^.]+))?\.([^.]+)$/);
         if (!match) return null;
         const [, base, ymd, hms, tag, ext] = match;
@@ -53,7 +68,7 @@ function initializeSiteArchive(sitePath: string) {
 
     // Recursively walk directory, ignoring hidden files/dirs
     function buildArchiveMap(rootDir: string) {
-        const archiveMap: Record<string, Array<{ path: string, date: Date, tag?: string, ext: string, originalName: string }>> = {};
+        const archiveMap: Record<string, Array<{ path: string | null, date: Date, tag?: string, ext: string, originalName: string }>> = {};
         function walk(dir: string) {
             for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
                 if (entry.name.startsWith('.')) continue;
@@ -63,19 +78,33 @@ function initializeSiteArchive(sitePath: string) {
                 } else {
                     const parsed = parseArchiveFilename(entry.name);
                     if (parsed) {
-                        const { originalName, date, tag, ext } = parsed;
-                        // Build key as relative path from rootDir, including subdirs and extension
-                        const relDir = path.relative(rootDir, dir);
-                        // If in root, relDir is '', so skip adding slash
-                        const key = relDir ? path.posix.join(relDir.split(path.sep).join('/'), `${originalName}.${ext}`) : `${originalName}.${ext}`;
-                        if (!archiveMap[key]) archiveMap[key] = [];
-                        archiveMap[key].push({
-                            path: path.relative(rootDir, fullPath).split(path.sep).join('/'),
-                            date,
-                            tag,
-                            ext,
-                            originalName
-                        });
+                        const { originalName, date, tag, ext, isMeta } = parsed;
+                        // For .meta files, key is the file it refers to (without .meta), path is null, tag is the meta event
+                        let key: string;
+                        if (isMeta) {
+                            // Remove .meta from key, keep subdir and ext
+                            const relDir = path.relative(rootDir, dir);
+                            key = relDir ? path.posix.join(relDir.split(path.sep).join('/'), `${originalName}.${ext}`) : `${originalName}.${ext}`;
+                            if (!archiveMap[key]) archiveMap[key] = [];
+                            archiveMap[key].push({
+                                path: null,
+                                date,
+                                tag, // meta event
+                                ext,
+                                originalName
+                            });
+                        } else {
+                            const relDir = path.relative(rootDir, dir);
+                            key = relDir ? path.posix.join(relDir.split(path.sep).join('/'), `${originalName}.${ext}`) : `${originalName}.${ext}`;
+                            if (!archiveMap[key]) archiveMap[key] = [];
+                            archiveMap[key].push({
+                                path: path.relative(rootDir, fullPath).split(path.sep).join('/'),
+                                date,
+                                tag,
+                                ext,
+                                originalName
+                            });
+                        }
                     }
                 }
             }
