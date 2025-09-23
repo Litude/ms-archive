@@ -27,7 +27,13 @@ export interface ArchiveVersion {
   date: Date,
   tag?: string,
   ext: string,
-  originalName: string
+  originalName: string,
+  modifyTime: Date,
+  fileSize: number,
+  archivalData?: {
+    description: string;
+    captureDataPath?: string;
+  }
 }
 
 export interface ArchiveData {

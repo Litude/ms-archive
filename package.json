@@ -15,7 +15,8 @@
     "acorn": "^8.15.0",
     "express": "^5.1.0",
     "handlebars": "^4.7.8",
-    "recast": "^0.23.11"
+    "recast": "^0.23.11",
+    "temporal-polyfill": "^0.3.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",

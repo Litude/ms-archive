@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
 import { get } from "http";
-import { ArchiveData } from "./model";
+import { ArchiveData, ArchiveVersion } from "./model";
 
 const ARCHIVE_ROOT = path.join(process.cwd(), process.env.ARCHIVE_DIR ?? "archives");
 
@@ -16,6 +16,25 @@ export function initializeArchive() {
             initializeSiteArchive(sitePath);
         }
     });
+}
+
+function readArchivalData(filePath: string, originalName: string, ext: string): any {
+    const fileDirectory = filePath.substring(0, filePath.lastIndexOf(path.sep));
+    const archivalDataPath = path.join(fileDirectory, '.archivalData', `${path.basename(filePath)}.json`);
+    const captureDataPath = path.join(fileDirectory, '.archivalData', `${originalName}.${ext}.archivaldata.csv`);
+    if (fs.existsSync(archivalDataPath)) {
+        const data = fs.readFileSync(archivalDataPath, 'utf8');
+        return JSON.parse(data);
+    }
+    else if (fs.existsSync(captureDataPath)) {
+        const relativePath = path.relative(fileDirectory, captureDataPath)
+        // TODO: Perhaps we could check if the modify date occurs in the CSV to make sure that the archivaldata includes this capture
+        return {
+            description: "From the Wayback Machine.",
+            captureDataPath: path.posix.join(...relativePath.split(path.sep)),
+        }
+    }
+    return undefined;
 }
 
 function initializeSiteArchive(sitePath: string) {
@@ -68,7 +87,7 @@ function initializeSiteArchive(sitePath: string) {
 
     // Recursively walk directory, ignoring hidden files/dirs
     function buildArchiveMap(rootDir: string) {
-        const archiveMap: Record<string, Array<{ path: string | null, date: Date, tag?: string, ext: string, originalName: string }>> = {};
+        const archiveMap: Record<string, ArchiveVersion[]> = {};
         function walk(dir: string) {
             for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
                 if (entry.name.startsWith('.')) continue;
@@ -91,19 +110,27 @@ function initializeSiteArchive(sitePath: string) {
                                 date,
                                 tag, // meta event
                                 ext,
-                                originalName
+                                originalName,
+                                modifyTime: new Date(0),
+                                fileSize: 0,
                             });
                         } else {
-                            const relDir = path.relative(rootDir, dir);
-                            key = relDir ? path.posix.join(relDir.split(path.sep).join('/'), `${originalName}.${ext}`) : `${originalName}.${ext}`;
-                            if (!archiveMap[key]) archiveMap[key] = [];
-                            archiveMap[key].push({
-                                path: path.relative(rootDir, fullPath).split(path.sep).join('/'),
-                                date,
-                                tag,
-                                ext,
-                                originalName
-                            });
+                            if (tag !== 'invalid') {
+                                const stats = fs.statSync(fullPath);
+                                const relDir = path.relative(rootDir, dir);
+                                key = relDir ? path.posix.join(relDir.split(path.sep).join('/'), `${originalName}.${ext}`) : `${originalName}.${ext}`;
+                                if (!archiveMap[key]) archiveMap[key] = [];
+                                archiveMap[key].push({
+                                    path: path.relative(rootDir, fullPath).split(path.sep).join('/'),
+                                    date,
+                                    tag,
+                                    ext,
+                                    originalName,
+                                    modifyTime: stats.mtime,
+                                    fileSize: stats.size,
+                                    archivalData: readArchivalData(fullPath, originalName, ext),
+                                });
+                            }
                         }
                     }
                 }

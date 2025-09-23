@@ -11,6 +11,7 @@ import { serialize } from "./html-tokenizer/serializer.js";
 import { ArchiveVersion, DeepPartial, VersionEntry, VersionSettings } from "./model.js";
 import { decodeHtml, processHtmlTokenized } from "./html-process/html-process.js";
 import { rewriteJavascriptBlockUrl } from "./html-process/html-javascript.js";
+import { generateSiteDirectoryListing } from "./file-listing.js";
 
 const app = express();
 const PORT = 3000;
@@ -113,8 +114,26 @@ app.get("/:site/:version/{*pathRaw}", async (req, res) => {
   if (pathRaw && pathRaw.at(-1) === "") {
     pathRaw[pathRaw.length - 1] = currentVersionData.settings.defaultPage;
   }
-  const requestedPath = pathRaw ? pathRaw.join('/') : currentVersionData.settings.defaultPage;
+  else if (pathRaw && pathRaw.at(-1) === "_files") {
+    const requestPath = pathRaw.slice(0, -1).join('/') + '/';
+    const fileListing = generateSiteDirectoryListing(requestPath, archiveData.archiveMap, new Date(`${version}T23:59:59Z`));
+    if (fileListing) {
+      return res.send(fileListing);
+    }
+    else {
+      return res.status(404).send("Not found");
+    }
+  }
+  // Special hack needed so .archivalData files are not versioned
+  else if (pathRaw && pathRaw.length > 1 && pathRaw.at(-2) === ".archivalData") {
+    const filePath = path.join(archiveData.fileRoot, pathRaw.join('/'));
+    res.sendFile(filePath, {
+      dotfiles: 'allow'
+    });
+    return;
+  }
 
+  const requestedPath = pathRaw ? pathRaw.join('/') : currentVersionData.settings.defaultPage;
 
   const filename = getFileVersion(requestedPath, new Date(`${version}T23:59:59Z`), archiveData.archiveMap);
   if (!filename) {
